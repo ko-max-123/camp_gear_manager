@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#5e6b4d">
+  <meta name="description" content="生成したキャンプギア収納画像を使って、収納を見ながら道具を選べるHTMLサイト">
+  <title>キャンプギア棚</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="header-inner">
+    <button class="brand" type="button" data-go="home" aria-label="キャンプギア棚の収納へ">
+      <svg class="brandmark" viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M6 30 20 9l14 21H6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m14 30 6-11 6 11M20 5v4M4 34h32" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span><small>CAMP GEAR SHELF</small><b>キャンプギア棚</b></span>
+    </button>
+
+    <nav class="primary-nav" aria-label="メインナビゲーション">
+      <button class="nav active" type="button" data-view="home" aria-current="page">収納から選ぶ</button>
+      <button class="nav" type="button" data-view="inventory">道具一覧</button>
+      <button class="nav" type="button" data-view="care">状態確認</button>
+    </nav>
+
+    <div class="header-actions">
+      <button class="nav trip-link" type="button" data-view="loadout" aria-label="今回の荷物を確認">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M5 7h14v14H5V7ZM8 7v14M16 7v14" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        <span>今回の荷物</span><b id="headerTripCount">0</b>
+      </button>
+      <details id="toolsMenu" class="tools-menu">
+        <summary aria-label="道具の追加・検索・設定" title="道具の追加・検索・設定"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></summary>
+        <div class="tools-panel">
+          <div class="menu-trip">
+            <label for="tripNameMenu">今回のキャンプ</label>
+            <input id="tripNameMenu" value="次回キャンプ">
+            <p id="tripMiniMeta"></p>
+          </div>
+          <form id="globalSearchForm" class="top-search" role="search">
+            <label class="sr-only" for="globalSearch">道具名・メーカー・保管場所で検索</label>
+            <input id="globalSearch" type="search" placeholder="道具を検索">
+            <button type="submit" aria-label="検索する"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+          </form>
+          <button id="addGearQuickBtn" class="menu-add" type="button">＋ 道具を追加</button>
+          <div class="menu-utilities">
+            <button id="themeBtn" type="button">表示テーマを切り替える</button>
+            <button id="exportBtn" type="button">JSONを書き出す</button>
+            <button id="importBtn" type="button">JSONを読み込む</button>
+            <input id="importInput" type="file" accept=".json" hidden>
+            <button id="resetBtn" class="danger" type="button">サンプルに戻す</button>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="main">
+    <section id="homeView" class="view active">
+        <section id="storageScene" class="visual-panel">
+          <div class="panel-head">
+            <div>
+              <small>STORAGE SCENE</small>
+              <h2>キャンプギア収納</h2>
+            </div>
+            <div class="legend">
+              <span>収納を選んで、道具を広げる</span>
+            </div>
+          </div>
+
+          <div class="storage-visual">
+            <img src="assets/storage_scene.png" alt="木の棚に並んだキャンプ道具。収納エリアを選ぶと道具を広げられます。" width="1586" height="992">
+
+            <button class="hotspot hs-backpack" data-scene="backpack">リュック類</button>
+            <button class="hotspot hs-cookware" data-scene="cookware">クッカー</button>
+            <button class="hotspot hs-lantern" data-scene="lantern">ランタン</button>
+            <button class="hotspot hs-tools" data-scene="tools">工具・ロープ</button>
+            <button class="hotspot hs-clothes" data-scene="clothes">衣類</button>
+            <button class="hotspot hs-cooler" data-scene="coolers">クーラー</button>
+            <button class="hotspot hs-boxes" data-scene="boxes">収納BOX</button>
+            <button class="hotspot hs-sleep" data-scene="sleeping">寝具・テント</button>
+            <button class="hotspot hs-tableware" data-scene="tableware">食器</button>
+          </div>
+        </section>
+        <section id="unpackScene" class="unpack-scene" aria-labelledby="unpackTitle" hidden>
+          <header class="unpack-header">
+            <button id="backToShelfBtn" class="shelf-back" type="button"><span aria-hidden="true">←</span> 収納棚に戻す</button>
+            <div class="unpack-heading">
+              <small>UNPACK &amp; PICK</small>
+              <h2 id="unpackTitle"></h2>
+              <p id="unpackDescription"></p>
+            </div>
+            <div id="unpackMeta" class="unpack-meta" aria-live="polite"></div>
+          </header>
+          <div id="spreadGrid" class="spread-grid" aria-label="広げた道具"></div>
+          <div id="spreadEmpty" class="spread-empty" hidden>
+            <h3>この収納にはまだ道具がありません</h3>
+            <p>道具を登録して、次のキャンプの準備を始めましょう。</p>
+            <button class="shelf-back" type="button" data-addgear>＋ 道具を追加</button>
+          </div>
+          <footer class="unpack-footer">
+            <p>道具をクリックすると詳細へ。「今回持っていく」で荷物に加えられます。</p>
+            <button class="packed-link" type="button" data-go="loadout">今回の荷物 <span id="unpackTripCount">0</span> 点 <span aria-hidden="true">↗</span></button>
+          </footer>
+        </section>
+    </section>
+
+    <section id="inventoryView" class="view">
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">INVENTORY</p>
+          <h1>持っている道具</h1>
+          <p>写真・保管場所・購入サイトURLも含めて、所有しているキャンプ道具を一覧で管理します。</p>
+        </div>
+        <button class="primary" data-addgear>＋ 道具を追加</button>
+      </div>
+
+      <div class="filters">
+        <label class="search-box">🔎<input id="gearSearch" placeholder="道具名・メーカー・保管場所で検索"></label>
+        <select id="gearCategoryFilter"><option value="">すべてのカテゴリ</option></select>
+        <select id="gearStatusFilter">
+          <option value="">すべての状態</option>
+          <option value="good">使用OK</option>
+          <option value="check">要確認</option>
+          <option value="repair">修理・交換</option>
+        </select>
+      </div>
+
+      <div id="inventoryMeta" class="meta-line"></div>
+      <div id="gearGrid" class="gear-grid"></div>
+      <div id="inventoryEmpty" class="empty hidden">
+        <span>🏕️</span><b>道具がありません</b><small>検索条件を変えるか、新しい道具を追加してください。</small>
+      </div>
+    </section>
+
+    <section id="loadoutView" class="view">
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">LOADOUT</p>
+          <h1>今回持っていく</h1>
+          <p>画像トップや一覧から選んだ道具を確認し、今回のキャンプ向けに整理できます。</p>
+        </div>
+        <div class="trip-name">
+          <small>キャンプ名</small>
+          <input id="tripNameMain">
+        </div>
+      </div>
+
+      <div id="loadoutStats" class="stats"></div>
+
+      <div class="loadout-board">
+        <section class="storage-zone drop-zone" id="storageZone" data-drop="storage">
+          <div class="zone-head">
+            <div><span>🧰</span><div><small>収納側</small><h2>まだ持っていかない道具</h2></div></div>
+            <button id="addDefaultsBtn" class="small-btn">定番装備を追加</button>
+          </div>
+          <div class="zone-hint">ここから今回使うギアを右へ移動できます</div>
+          <div id="storageGearList" class="move-grid"></div>
+        </section>
+
+        <div class="transfer-arrow"><span>⇄</span><small>出し入れ</small></div>
+
+        <section class="camp-zone drop-zone" id="campZone" data-drop="camp">
+          <div class="zone-head">
+            <div><span>🚙</span><div><small>今回使用</small><h2>今回持っていく道具</h2></div></div>
+            <button id="clearLoadoutBtn" class="small-btn">すべて戻す</button>
+          </div>
+          <div class="zone-hint">キャンプへ持っていく予定のギアです</div>
+          <div id="campGearList" class="move-grid"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="careView" class="view">
+      <div class="page-intro">
+        <div>
+          <p class="eyebrow">CARE</p>
+          <h1>状態確認</h1>
+          <p>要確認・修理が必要な道具だけをまとめて表示します。</p>
+        </div>
+      </div>
+      <div id="careStats" class="stats"></div>
+      <section class="panel"><div id="careList" class="care-list"></div></section>
+    </section>
+    <section id="detailView" class="view maintenance-view gear-detail-view" aria-labelledby="detailTitle">
+      <header class="maintenance-header">
+        <button id="detailBackBtn" class="maintenance-back" type="button">← 道具一覧に戻る</button>
+        <div><small>GEAR / FIELD NOTES</small><h1 id="detailTitle" tabindex="-1">道具の詳細</h1><p id="detailCategory"></p></div>
+        <span id="detailStatus" class="maintenance-stamp"></span>
+      </header>
+      <div class="maintenance-layout">
+        <section class="workbench detail-workbench" aria-label="道具の写真">
+          <div class="workbench-caption"><span>いつもの道具</span><small>READY FOR THE NEXT CAMP</small></div>
+          <div id="detailPhoto" class="photo-preview"></div>
+          <div class="gear-nameplate detail-nameplate"><span id="detailBrand"></span><strong id="detailName"></strong><small id="detailPacked"></small></div>
+        </section>
+        <section class="maintenance-notebook detail-notebook" aria-labelledby="detailNotesTitle">
+          <header class="notebook-heading"><small>GEAR NOTES</small><h2 id="detailNotesTitle">道具のこと</h2></header>
+          <div class="detail-note"><h3>気づいたこと・次にする手入れ</h3><p id="detailNote"></p></div>
+          <div class="detail-storage"><h3>しまう場所</h3><p id="detailStorage"></p></div>
+          <dl id="detailSpecs" class="detail-specs"></dl>
+          <a id="detailPurchaseLink" class="detail-purchase" target="_blank" rel="noopener" hidden>購入サイトを開く ↗</a>
+          <div class="maintenance-actions detail-actions">
+            <button id="detailPackBtn" class="secondary" type="button">今回持っていく</button>
+            <button id="detailMaintenanceBtn" class="primary" type="button">手入れする ↗</button>
+          </div>
+        </section>
+      </div>
+    </section>
+    <section id="maintenanceView" class="view maintenance-view" aria-labelledby="maintenanceTitle">
+      <header class="maintenance-header">
+        <button id="maintenanceBackBtn" class="maintenance-back" type="button">← 道具へ戻る</button>
+        <div><small>GEAR CARE / WORKBENCH</small><h1 id="maintenanceTitle" tabindex="-1">道具の手入れ</h1><p id="maintenanceDescription">状態を確かめて、気づいたことを残しておきましょう。</p></div>
+        <span id="maintenanceStamp" class="maintenance-stamp check">要確認</span>
+      </header>
+      <form id="gearForm" class="maintenance-layout">
+        <input id="gearId" type="hidden">
+        <section class="workbench" aria-label="道具の手入れ台">
+          <div class="workbench-caption"><span>手入れ台</span><small>READY FOR THE NEXT CAMP</small></div>
+          <div id="photoPreview" class="photo-preview"></div>
+          <label class="gear-nameplate" for="gearName"><span>道具の名前</span><input id="gearName" required maxlength="80" placeholder="この道具の名前"></label>
+          <div class="photo-actions">
+            <button id="choosePhotoBtn" type="button" class="primary photo-button">写真を選ぶ</button>
+            <input id="gearPhoto" type="file" accept="image/*" hidden>
+            <button id="removePhotoBtn" type="button" class="small-btn">写真を削除</button>
+            <small id="photoInfo" role="status" aria-live="polite"></small>
+          </div>
+        </section>
+        <section class="maintenance-notebook" aria-labelledby="careNoteTitle">
+          <header class="notebook-heading"><small>CARE NOTES</small><h2 id="careNoteTitle">手入れの記録</h2><p id="maintenanceGearMeta"></p></header>
+          <fieldset class="condition-options">
+            <legend>今の状態</legend>
+            <label><input type="radio" name="gearStatus" value="good" checked><span><b>使える</b><small>次のキャンプへ</small></span></label>
+            <label><input type="radio" name="gearStatus" value="check"><span><b>点検したい</b><small>出発前に確認</small></span></label>
+            <label><input type="radio" name="gearStatus" value="repair"><span><b>手入れ・修理</b><small>直してから使う</small></span></label>
+          </fieldset>
+          <label class="care-note-field" for="gearNote"><span>気づいたこと・次にする手入れ</span><textarea id="gearNote" rows="5" maxlength="500" placeholder="例：充電しておく。汚れを落として乾かす。部品の緩みを確認する。"></textarea></label>
+          <label class="field care-storage"><span>しまう場所</span><input id="gearStorage" maxlength="100" placeholder="例：収納BOX A / ペグケース"></label>
+          <details id="gearSpecs" class="gear-specs">
+            <summary>道具のこと <span>メーカー・数量・購入の記録</span></summary>
+            <div class="form-grid">
+              <label class="field"><span>カテゴリ</span><select id="gearCategory"></select></label>
+              <label class="field"><span>メーカー</span><input id="gearBrand" maxlength="60"></label>
+              <label class="field"><span>数量</span><input id="gearQty" type="number" min="1" max="99" value="1"></label>
+              <label class="field"><span>重量 kg</span><input id="gearWeight" type="number" min="0" max="999" step=".01"></label>
+              <label class="field"><span>購入日</span><input id="gearPurchased" type="date"></label>
+              <label class="field wide"><span>購入サイトURL</span><input id="gearUrl" type="url" placeholder="https://..."></label>
+              <label class="toggle wide"><input id="gearDefault" type="checkbox"><span>いつもの装備にする</span></label>
+            </div>
+          </details>
+          <div class="maintenance-actions">
+            <button id="cancelGearBtn" type="button" class="maintenance-cancel">記録せず戻る</button>
+            <button id="saveGearBtn" type="submit" class="primary">記録して戻る</button>
+          </div>
+          <details id="gearRemoveOptions" class="gear-remove-options"><summary>この道具を棚から外す</summary><button id="deleteGearBtn" type="button" class="danger-btn">道具を削除</button></details>
+        </section>
+      </form>
+    </section>
+  </main>
+</div>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
