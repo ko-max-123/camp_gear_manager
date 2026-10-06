@@ -61,7 +61,9 @@ Googleログインを標準にする。OAuthはPKCEを使い、パスワード�
 
 ## 写真
 
-写真をブラウザで縮小・WebP圧縮し、透過部分を保持する。保存先は非公開バケット `gear-photos` の `ユーザーID/道具ID/ランダムID.ext`。DBには公開URLではなく保存パスを記録する。
+写真をブラウザで長辺1280px以下に縮小・WebP圧縮し、透過部分を保持する。JPEGだけは圧縮前に `WhiteBackgroundRemover` で外周につながるほぼ白い画素を透明にし、明るい輪郭の1画素をなじませる。囲まれた白い部分や色付き背景は残す。透過を含む場合のWebP非対応時はPNGへフォールバックする。外部の画像処理APIは使わない。既存写真は自動で変換せず、元のJPEGを選び直した時に処理する。
+
+保存先は非公開バケット `gear-photos` の `ユーザーID/道具ID/ランダムID.ext`。DBには公開URLではなく保存パスを記録する。
 
 アップロード → 道具情報の確定 → 元の写真の削除、の順で差し替える。保存失敗後の新しい写真は、DBが参照していないことを確認できた時だけ削除する。通信切断で確定状態が不明な場合は写真を残すため、Storageに未参照のファイルが残る可能性がある。容量を整理する時はDBの `photo_path` と突き合わせる。
 
@@ -97,4 +99,4 @@ Googleログインを標準にする。OAuthはPKCEを使い、パスワード�
 
 公式資料：[Supabase料金](https://supabase.com/pricing)、[Cloudflare制限](https://developers.cloudflare.com/workers/platform/limits/)、[Static Assets料金](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)、[Supabase SMTP](https://supabase.com/docs/guides/auth/auth-smtp)、[RLS](https://supabase.com/docs/guides/database/postgres/row-level-security)、[Storageの権限](https://supabase.com/docs/guides/storage/security/access-control)。
 
-今回の確認は構文、import、HTMLの参照、公開ファイル生成、Workerのビルドまで。ユーザー指定により、画面の操作、スマホ表示、実際の認証・DB保存のテストは行っていない。外部アカウント設定とSQL適用は別途必要。
+初期の実装確認は構文、import、HTMLの参照、公開ファイル生成、Workerのビルドまで。その後2026-10-06に外部アカウント設定とSQL適用を完了し、公開サイトでGoogleログイン、棚の保存と再読み込みを確認した。写真のアップロード・再表示とスマホでの実機操作は未確認。現在の環境と確認範囲は[外部サービスの設定状況](integration-status.md)を参照。

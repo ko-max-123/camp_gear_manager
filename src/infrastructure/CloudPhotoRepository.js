@@ -27,7 +27,14 @@ export class CloudPhotoRepository {
   }
 
   async upload(id, data) {
-    const blob = await (await fetch(data)).blob();
+    // data URLは通信せずに復元し、connect-src 'self' の制限を維持します。
+    const prefix = /^data:(image\/(?:webp|png|jpeg));base64,/.exec(data);
+    if (!prefix) throw new Error("写真のデータ形式を確認してください。");
+    const binary = atob(data.slice(prefix[0].length));
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+    const blob = new Blob([bytes], { type: prefix[1] });
     const response = await this.api.request("/photos", {
       method: "POST",
       headers: { "Content-Type": blob.type, "X-Gear-Id": id },

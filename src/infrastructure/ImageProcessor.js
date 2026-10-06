@@ -1,4 +1,6 @@
-/** 画像の縮小と圧縮。透明部分を白で塗りつぶしません。 */
+import { WhiteBackgroundRemover } from "./WhiteBackgroundRemover.js";
+
+/** 画像を縮小・圧縮し、JPEGは白背景を透過する。 */
 export class ImageProcessor {
   async compress(file) {
     const url = URL.createObjectURL(file);
@@ -20,7 +22,12 @@ export class ImageProcessor {
       c.height = h;
       const ctx = c.getContext("2d");
       ctx.drawImage(img, 0, 0, w, h);
-      const pixels = ctx.getImageData(0, 0, w, h).data;
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const whiteBackgroundRemoved =
+        file.type === "image/jpeg" &&
+        new WhiteBackgroundRemover().remove(imageData) > 0;
+      if (whiteBackgroundRemoved) ctx.putImageData(imageData, 0, 0);
+      const pixels = imageData.data;
       let hasAlpha = false;
       for (let i = 3; i < pixels.length; i += 4) {
         if (pixels[i] < 250) {
@@ -37,6 +44,7 @@ export class ImageProcessor {
         height: h,
         size: Math.round(data.length * 0.75),
         hasAlpha,
+        whiteBackgroundRemoved,
       };
     } finally {
       URL.revokeObjectURL(url);

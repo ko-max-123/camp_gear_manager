@@ -219,7 +219,9 @@ export class GearMaintenanceView extends BaseView {
       this.tempPhotoCutout = result.hasAlpha;
       this.tempPhotoRemoved = false;
       this.renderPhotoPreview(result.data);
-      $("#photoInfo").textContent = "記録すると写真を更新します";
+      $("#photoInfo").textContent = result.whiteBackgroundRemoved
+        ? "白背景を透過しました。記録すると写真を更新します"
+        : "記録すると写真を更新します";
     } catch (err) {
       if (version === this.editorVersion && request === this.photoRequest) {
         $("#photoInfo").textContent =
