@@ -153,31 +153,40 @@
         </section>
     </section>
 
-    <section id="inventoryView" class="view">
-      <div class="page-intro">
-        <div>
-          <p class="eyebrow">INVENTORY</p>
-          <h1>持っている道具</h1>
-          <p>写真・保管場所・購入サイトURLも含めて、所有しているキャンプ道具を一覧で管理します。</p>
+    <section id="inventoryView" class="view inventory-view" aria-labelledby="inventoryTitle">
+      <div class="inventory-surface">
+        <header class="inventory-header">
+          <div>
+            <small>GEAR SHELF / COLLECTION</small>
+            <h1 id="inventoryTitle">持っている道具</h1>
+            <p>いつもの道具を並べて、次のキャンプの準備を。</p>
+          </div>
+          <button class="inventory-add" type="button" data-addgear><span aria-hidden="true">＋</span> 道具を追加</button>
+        </header>
+
+        <div class="inventory-finder" role="search" aria-label="持っている道具を絞り込む">
+          <label class="inventory-field inventory-search">
+            <span>道具を探す</span>
+            <span class="inventory-search-control">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <input id="gearSearch" type="search" placeholder="名前・メーカー・しまう場所">
+            </span>
+          </label>
+          <label class="inventory-field"><span>道具の種類</span><select id="gearCategoryFilter"><option value="">すべてのカテゴリ</option></select></label>
+          <label class="inventory-field"><span>道具の状態</span><select id="gearStatusFilter">
+            <option value="">すべての状態</option>
+            <option value="good">使用OK</option>
+            <option value="check">要確認</option>
+            <option value="repair">修理・交換</option>
+          </select></label>
         </div>
-        <button class="primary" data-addgear>＋ 道具を追加</button>
-      </div>
 
-      <div class="filters">
-        <label class="search-box">🔎<input id="gearSearch" placeholder="道具名・メーカー・保管場所で検索"></label>
-        <select id="gearCategoryFilter"><option value="">すべてのカテゴリ</option></select>
-        <select id="gearStatusFilter">
-          <option value="">すべての状態</option>
-          <option value="good">使用OK</option>
-          <option value="check">要確認</option>
-          <option value="repair">修理・交換</option>
-        </select>
-      </div>
-
-      <div id="inventoryMeta" class="meta-line"></div>
-      <div id="gearGrid" class="gear-grid"></div>
-      <div id="inventoryEmpty" class="empty hidden">
-        <span>🏕️</span><b>道具がありません</b><small>検索条件を変えるか、新しい道具を追加してください。</small>
+        <div class="inventory-caption"><p id="inventoryMeta" class="meta-line" aria-live="polite"></p><p>道具を選ぶと、詳しい記録へ <span aria-hidden="true">↗</span></p></div>
+        <div id="gearGrid" class="gear-grid"></div>
+        <div id="inventoryEmpty" class="inventory-empty hidden">
+          <small>GEAR SHELF</small><h2>道具が見つかりません</h2><p>探す言葉や種類を変えるか、新しい道具を追加してください。</p>
+          <button class="inventory-add" type="button" data-addgear>＋ 道具を追加</button>
+        </div>
       </div>
     </section>
 

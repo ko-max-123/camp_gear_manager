@@ -425,25 +425,37 @@ async function renderInventory(){
   await renderGearCards($("#gearGrid"),list);
 }
 async function renderGearCards(root,list){
-  root.innerHTML=list.map(g=>gearCardHtml(g)).join("");
+  root.innerHTML=list.map((g,index)=>gearCardHtml(g,index)).join("");
   for(const g of list){
     const img=await photoGet(g.id);
     const wrap=root.querySelector(`[data-id="${CSS.escape(g.id)}"] .gear-photo`);
-    if(img&&wrap){wrap.classList.remove("empty-photo");wrap.innerHTML=`<img src="${img}" alt="${esc(g.name)}の写真"><span class="photo-badge">PHOTO</span>`}
+    if(img&&wrap){
+      const art=wrap.querySelector(".inventory-art");
+      art.className="inventory-art inventory-personal-photo";art.style.cssText="";
+      art.innerHTML=`<img src="${esc(img)}" alt="${esc(g.name)}の写真">`;
+    }
   }
 }
-function gearCardHtml(g){
+function gearCardHtml(g,index){
+  const sprite=sceneSprite(g),tilt=[-4,3,-2,4,-3,2][index%6],tagTilt=[-.7,.6,-.4,.8,-.6,.4][index%6];
+  const chosen=state.trip.selected.includes(g.id);
   const url=g.url?`<a class="buy-link" href="${esc(g.url)}" target="_blank" rel="noopener">購入サイト ↗</a>`:"";
-  return `<article class="gear-card" data-id="${esc(g.id)}">
-    <div class="gear-photo empty-photo">${emoji[g.category]||"🎒"}</div>
+  return `<article class="gear-card" data-id="${esc(g.id)}" style="--gear-tilt:${tilt}deg;--tag-tilt:${tagTilt}deg">
+    <div class="gear-photo">
+      <span class="inventory-art gear-sprite" style="background-position:${sprite%4*100/3}% ${Math.floor(sprite/4)*100/3}%" aria-hidden="true"></span>
+      ${chosen?'<span class="inventory-packed">✓ 今回の荷物</span>':""}
+    </div>
     <div class="gear-body">
-      <div class="gear-top"><span class="category-pill">${emoji[g.category]||"🎒"} ${esc(g.category)}</span><button class="edit-btn" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れ" title="手入れする">✎</button></div>
+      <div class="gear-top"><span class="inventory-category">${esc(g.category)}</span><span class="inventory-number" aria-hidden="true">${String(index+1).padStart(2,"0")}</span></div>
       <h3><a class="gear-detail-link" href="#gear/${encodeURIComponent(g.id)}" data-gear-detail="${esc(g.id)}" aria-label="${esc(g.name)}の詳細">${esc(g.name)}</a></h3>
-      <div class="brand-text">${esc(g.brand||"メーカー未設定")} / ${esc(g.storage||"保管場所未設定")}</div>
+      ${g.brand?`<p class="brand-text">${esc(g.brand)}</p>`:""}
+      <div class="inventory-location"><span>しまう場所</span><b>${esc(g.storage||"保管場所未設定")}</b></div>
       <div class="gear-meta">
-        <div class="meta-box"><small>状態</small><b class="status ${esc(g.status)}">${statusText[g.status]}</b></div>
-        <div class="meta-box"><small>数量 / 重量</small><b>${g.qty||1} / ${fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))}</b></div>
-      </div>${url}
+        <span class="inventory-measure">${esc(g.qty||1)}個 / ${fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))}</span>
+        <span class="inventory-condition ${esc(g.status)}">${esc(statusText[g.status]||"状態未設定")}</span>
+      </div>
+      <div class="gear-actions"><span class="inventory-open" aria-hidden="true">詳細を見る ↗</span><button class="edit-btn" type="button" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れ">手入れする ↗</button></div>
+      ${url}
     </div>
   </article>`;
 }
