@@ -1,0 +1,180 @@
+/* ログインは、収納写真と紙の札を組み合わせた入口として扱います。 */
+.auth-screen {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(360px, 1fr);
+  background: #514635;
+}
+.auth-scene {
+  position: relative;
+  background:
+    linear-gradient(0deg, #2c2619aa, transparent 45%),
+    url("assets/storage-scene.webp") center / cover;
+  min-height: 520px;
+}
+.auth-scene > span {
+  position: absolute;
+  bottom: 42px;
+  left: 42px;
+  color: #f3eddc;
+  font: 12px var(--mono);
+  letter-spacing: 0.22em;
+}
+.auth-paper {
+  position: relative;
+  align-self: center;
+  margin: 48px;
+  padding: 46px 40px 32px;
+  border: 1px solid #d1c3a4;
+  border-radius: 4px;
+  background:
+    repeating-linear-gradient(0deg, #efe6d700 0 3px, #c3b5920a 3px 4px), #f5efdf;
+  color: #383c30;
+  box-shadow:
+    5px 8px 0 #29231833,
+    0 20px 60px #1d190f66;
+}
+.auth-paper::before {
+  content: "";
+  display: block;
+  width: 54px;
+  height: 14px;
+  margin: -52px auto 30px;
+  background: #cbbf9eaa;
+  transform: rotate(-4deg);
+}
+.auth-paper h1 {
+  font-size: clamp(24px, 2.2vw, 36px);
+  line-height: 1.6;
+  margin: 12px 0 18px;
+}
+.auth-description {
+  color: #777767;
+  font-size: 14px;
+  line-height: 2;
+  margin-bottom: 30px;
+}
+.auth-google {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 15px 20px;
+  border: 1px solid #9b9e86;
+  border-radius: 4px;
+  color: #353e30;
+  background: #fffcf4;
+  box-shadow: 0 3px 0 #9b94762b;
+  font-size: 14px;
+  font-weight: 700;
+}
+.auth-google span {
+  font:
+    700 21px system-ui,
+    sans-serif;
+  color: #59684a;
+}
+.auth-screen button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.auth-divider {
+  margin: 28px 0 20px;
+  color: #898977;
+  font-size: 11px;
+  text-align: center;
+}
+#authForm {
+  display: grid;
+  gap: 16px;
+}
+#authForm input {
+  background: #fffcf7;
+  border-color: #c8bea6;
+  color: #383c30;
+}
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.auth-links button,
+.auth-back {
+  border: 0;
+  background: transparent;
+  color: #666e57;
+  padding: 4px 0;
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.auth-message {
+  min-height: 2.8em;
+  margin: 24px 0 14px;
+  color: #856443;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.auth-footnote {
+  display: block;
+  margin-top: 28px;
+  color: #858573;
+  font-size: 10px;
+}
+.account-button {
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.account-record {
+  padding: 12px 6px 6px;
+  overflow-wrap: anywhere;
+}
+.account-record span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+#cloudStatus {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+#cloudStatus[data-status="error"] {
+  color: var(--red);
+}
+.migration-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 22px;
+  margin-bottom: 24px;
+  border: 1px solid #c1b697;
+  border-radius: 4px;
+  background: #f4edda;
+  color: #5d604e;
+  box-shadow: 0 3px 8px #40371e14;
+}
+.migration-banner p {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.migration-banner button {
+  border: 1px solid #91977c;
+  border-radius: 4px;
+  background: #697558;
+  color: #fffaf0;
+  padding: 10px 18px;
+  font-size: 12px;
+}

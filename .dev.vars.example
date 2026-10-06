@@ -1,0 +1,4 @@
+# ローカル開発用。.dev.varsへコピーし、実際の公開キーを入力します。
+# 管理用のservice_role / sb_secret_キーは使いません。
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY

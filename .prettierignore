@@ -1,0 +1,6 @@
+node_modules
+dist
+assets
+output
+.codex-remote-attachments
+package-lock.json
