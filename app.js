@@ -3,6 +3,7 @@
 const KEY="campGearShelf_v7";
 const DB_NAME="campGearShelfImages";
 const DB_STORE="photos";
+const OWNED_PEG_IMPORT_KEY=KEY+"_owned_titanmania_pegs_v1";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 
 const categories=["テント・タープ","寝具","ファニチャー","焚き火・火器","調理・食器","照明・電源","クーラー・保冷","衣類","衛生・救急","工具・ロープ","その他"];
@@ -22,10 +23,24 @@ const sceneDefs={
   tableware:{label:"食器",desc:"マグ・皿・カップなど",filter:g=>g.category==="調理・食器"||/マグ|カップ|皿|食器/.test(g.name)},
 };
 
+const ownedPeg={
+  id:"owned-b08xldyzc5",
+  name:"V字型チタンペグ 16cm",
+  category:"工具・ロープ",
+  brand:"TITAN MANIA",
+  qty:6,qtyUnit:"本",weight:.012,status:"check",default:false,
+  storage:"",purchased:"",
+  url:"https://www.amazon.co.jp/dp/B08XLDYZC5",
+  photoSrc:"assets/owned-gear/titanmania-v-pegs.jpg",
+  note:"添付写真をもとに試し登録。穴ありのV字型・オレンジ色のロープ付き。\n商品仕様はTITAN MANIA公式の16cmタイプを参照：チタン製、約15×160mm、1本約12g、6本セット・収納袋付き。Amazonページとの照合は未確認。\n所持本数は写真の6本で仮登録。購入日・保管場所・現在の状態は未確認。",
+  updated:Date.now()
+};
+
 const sample={
   theme:"light",
   trip:{name:"次回キャンプ",selected:["g1","g2","g4","g6","g8","g12"]},
   gear:[
+    ownedPeg,
     {id:"g1",name:"LEDランタン",category:"照明・電源",brand:"Goal Zero",qty:2,weight:.35,status:"check",default:true,storage:"収納BOX A",purchased:"2025-08-22",url:"",note:"出発前に充電確認",updated:19},
     {id:"g2",name:"マグカップ",category:"調理・食器",brand:"Snow Peak",qty:2,weight:.18,status:"good",default:true,storage:"収納BOX A",purchased:"2025-02-10",url:"",note:"お気に入りのカップ",updated:18},
     {id:"g3",name:"クッカーセット",category:"調理・食器",brand:"UNIFLAME",qty:1,weight:1.1,status:"good",default:true,storage:"収納BOX C",purchased:"2024-11-02",url:"",note:"フライパン・鍋のセット",updated:17},
@@ -74,9 +89,16 @@ const sceneAssetsReady=Promise.all(["assets/unpack-ground.png","assets/unpack-ge
 })));
 
 const save=()=>localStorage.setItem(KEY,JSON.stringify(state));
+function importOwnedPeg(){
+  try{
+    if(localStorage.getItem(OWNED_PEG_IMPORT_KEY)==="1")return;
+    if(!state.gear.some(g=>g.id===ownedPeg.id))state.gear.unshift(clone(ownedPeg));
+    save();localStorage.setItem(OWNED_PEG_IMPORT_KEY,"1");
+  }catch(e){}
+}
 const selectedGear=()=>state.gear.filter(g=>state.trip.selected.includes(g.id));
 const weight=list=>list.reduce((s,g)=>s+(Number(g.weight)||0)*(Number(g.qty)||1),0);
-const fmtWeight=v=>{v=Number(v)||0;return v?`${v.toFixed(v<10?2:1).replace(/\.?0+$/,"")} kg`:"—";};
+const fmtWeight=v=>{v=Number(v)||0;return v?(v<.1?`${Number((v*1000).toFixed(1))} g`:`${v.toFixed(v<10?2:1).replace(/\.?0+$/,"")} kg`):"—";};
 const makeId=()=>`g${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`;
 function toast(t){const el=$("#toast");el.textContent=t;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),1600);}
 function stat(label,value,unit){return `<div class="stat-card"><small>${label}</small><strong>${value}<span>${unit}</span></strong></div>`;}
@@ -89,7 +111,14 @@ function openDb(){
   });
 }
 async function photoPut(id,dataUrl){const db=await openDb();await new Promise((res,rej)=>{const tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).put(dataUrl,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});db.close();}
-async function photoGet(id){try{const db=await openDb();const result=await new Promise((res,rej)=>{const tx=db.transaction(DB_STORE,"readonly");const req=tx.objectStore(DB_STORE).get(id);req.onsuccess=()=>res(req.result||null);req.onerror=()=>rej(req.error);});db.close();return result;}catch(e){return null}}
+async function photoGet(id){
+  const bundledPhoto=state.gear.find(g=>g.id===id)?.photoSrc||null;
+  try{
+    const db=await openDb();
+    const result=await new Promise((res,rej)=>{const tx=db.transaction(DB_STORE,"readonly");const req=tx.objectStore(DB_STORE).get(id);req.onsuccess=()=>res(req.result||null);req.onerror=()=>rej(req.error);});
+    db.close();return result||bundledPhoto;
+  }catch(e){return bundledPhoto}
+}
 async function photoDelete(id){try{const db=await openDb();await new Promise((res,rej)=>{const tx=db.transaction(DB_STORE,"readwrite");tx.objectStore(DB_STORE).delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error);});db.close();}catch(e){}}
 async function compressImage(file){
   const url=URL.createObjectURL(file);
@@ -103,6 +132,7 @@ async function compressImage(file){
   }finally{URL.revokeObjectURL(url)}
 }
 async function init(){
+  importOwnedPeg();
   document.body.classList.toggle("dark",state.theme==="dark");
   $("#gearCategory").innerHTML=categories.map(c=>`<option>${esc(c)}</option>`).join("");
   $("#gearCategoryFilter").innerHTML='<option value="">すべてのカテゴリ</option>'+categories.map(c=>`<option>${esc(c)}</option>`).join("");
@@ -396,7 +426,7 @@ function sceneItemHtml(item,index){
   return `<article class="spread-item ${chosen?"is-packed":""}" style="--gear-tilt:${tilt}deg">
     <a class="spread-pick" href="#gear/${encodeURIComponent(item.id)}" data-gear-detail="${esc(item.id)}" aria-label="${esc(item.name)}の詳細">
       <span class="spread-object">${art}<span class="packed-stamp" aria-hidden="true">✓ PACKED</span></span>
-      <span class="gear-tag"><strong>${esc(item.name)}</strong><span>${esc(item.qty||1)}個 · ${fmtWeight((Number(item.weight)||0)*(Number(item.qty)||1))}</span><b>詳細を見る ↗</b></span>
+      <span class="gear-tag"><strong>${esc(item.name)}</strong><span>${esc(item.qty||1)}${esc(item.qtyUnit||"個")} · ${fmtWeight((Number(item.weight)||0)*(Number(item.qty)||1))}</span><b>詳細を見る ↗</b></span>
     </a>
     <div class="spread-detail">
       <span class="spread-condition ${esc(item.status)}">${esc(statusText[item.status]||"状態未設定")}</span>
@@ -451,7 +481,7 @@ function gearCardHtml(g,index){
       ${g.brand?`<p class="brand-text">${esc(g.brand)}</p>`:""}
       <div class="inventory-location"><span>しまう場所</span><b>${esc(g.storage||"保管場所未設定")}</b></div>
       <div class="gear-meta">
-        <span class="inventory-measure">${esc(g.qty||1)}個 / ${fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))}</span>
+        <span class="inventory-measure">${esc(g.qty||1)}${esc(g.qtyUnit||"個")} / ${fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))}</span>
         <span class="inventory-condition ${esc(g.status)}">${esc(statusText[g.status]||"状態未設定")}</span>
       </div>
       <div class="gear-actions"><span class="inventory-open" aria-hidden="true">詳細を見る ↗</span><button class="edit-btn" type="button" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れ">手入れする ↗</button></div>
@@ -544,7 +574,7 @@ async function renderGearDetails(){
   $("#detailPackBtn").textContent=chosen?"今回の荷物から戻す":"今回持っていく";
   $("#detailPackBtn").setAttribute("aria-pressed",String(chosen));
   const specs=[
-    ["数量",`${g.qty||1}個`],["重量 / 1個",fmtWeight(g.weight)],
+    ["数量",`${g.qty||1}${g.qtyUnit||"個"}`],[`重量 / 1${g.qtyUnit||"個"}`,fmtWeight(g.weight)],
     ["合計重量",fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))],
     ["購入日",g.purchased?String(g.purchased).replaceAll("-","/"):"未記録"],
     ["メーカー",g.brand||"未記録"],["いつもの装備",g.default?"いつも持っていく道具":"キャンプに合わせて選ぶ道具"]
@@ -651,6 +681,7 @@ async function saveGearFromForm(){
   if(editorLoading||photoBusy||savingGear)return;
   const id=$("#gearId").value||makeId();
   const item={
+    ...state.gear.find(g=>g.id===id),
     id,
     name:$("#gearName").value.trim(),
     category:$("#gearCategory").value,
@@ -671,6 +702,7 @@ async function saveGearFromForm(){
   const idx=state.gear.findIndex(g=>g.id===id);
   try{
     if(tempPhoto)await photoPut(id,tempPhoto);else if(tempPhotoRemoved)await photoDelete(id);
+    if(tempPhoto||tempPhotoRemoved)delete item.photoSrc;
     if(idx>=0)state.gear[idx]=item;else state.gear.unshift(item);
     save();await renderAll();
     if(version===editorVersion){savingGear=false;leaveMaintenance();}
@@ -687,7 +719,7 @@ async function deleteCurrentGear(){
   savingGear=true;updateEditorBusy();
   const version=editorVersion,previous=clone(state);
   try{
-    state.gear=state.gear.filter(x=>x!==id);state.trip.selected=state.trip.selected.filter(x=>x!==id);save();
+    state.gear=state.gear.filter(x=>x.id!==id);state.trip.selected=state.trip.selected.filter(x=>x!==id);save();
     await photoDelete(id);await renderAll();
     if(version===editorVersion){savingGear=false;leaveMaintenance();}
     toast("道具を棚から外しました");
