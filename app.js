@@ -107,6 +107,7 @@ async function init(){
   $("#gearCategory").innerHTML=categories.map(c=>`<option>${esc(c)}</option>`).join("");
   $("#gearCategoryFilter").innerHTML='<option value="">すべてのカテゴリ</option>'+categories.map(c=>`<option>${esc(c)}</option>`).join("");
   bind();
+  observeStorageCards();
   const route=readRoute();
   if(route.view==="maintenance")openGearEditor(route.id,{fromHistory:true,returnInfo:history.state?.returnInfo});
   else if(route.view==="detail")openGearDetails(route.id,{fromHistory:true,returnInfo:history.state?.returnInfo,hasBack:history.state?.hasBack});
@@ -135,7 +136,7 @@ function bind(){
   $("#gearStatusFilter").onchange=renderInventory;
   $("#addDefaultsBtn").onclick=()=>{state.gear.filter(g=>g.default).forEach(g=>{if(!state.trip.selected.includes(g.id))state.trip.selected.push(g.id)});save();renderAll();toast("定番装備を追加しました");};
   $("#clearLoadoutBtn").onclick=()=>{if(confirm("今回持っていく道具をすべて戻しますか？")){state.trip.selected=[];save();renderAll();}};
-  $$(".hotspot").forEach(btn=>btn.onclick=()=>openScene(btn.dataset.scene));
+  $$('#storageScene [data-scene]').forEach(btn=>btn.onclick=()=>openScene(btn.dataset.scene));
   $("#backToShelfBtn").onclick=closeScene;
   document.addEventListener("keydown",e=>{
     if(e.key==="Escape"&&$("#toolsMenu").open){
@@ -245,7 +246,7 @@ function restoreViewContext(origin={}){
   closeScene(false);activateView(view);
   if(view==="home"&&sceneDefs[origin.scene]){
     currentSceneKey=origin.scene;$("#storageScene").hidden=true;$("#unpackScene").hidden=false;
-    $$(".hotspot").forEach(b=>b.classList.toggle("active",b.dataset.scene===origin.scene));
+    $$('#storageScene [data-scene]').forEach(b=>b.classList.toggle("active",b.dataset.scene===origin.scene));
     renderScene();
   }
   window.scrollTo({top:origin.scroll||0,behavior:"instant"});
@@ -280,7 +281,7 @@ async function renderAll(){
   renderCare();
 }
 async function renderHome(){
-  $$(".hotspot").forEach(b=>{
+  $$('#storageScene [data-scene]').forEach(b=>{
     const def=sceneDefs[b.dataset.scene];
     const count=state.gear.filter(g=>def.filter(g)&&state.trip.selected.includes(g.id)).length;
     b.classList.toggle("has-packed",count>0);
@@ -288,15 +289,31 @@ async function renderHome(){
   });
   if(currentSceneKey)await renderScene();
 }
+function observeStorageCards(){
+  const observer=new ResizeObserver(entries=>{
+    entries.forEach(({target:frame})=>{
+      const width=frame.clientWidth,height=frame.clientHeight;
+      if(!width||!height)return;
+      const fullWidth=width*4,fullHeight=fullWidth*992/1586;
+      const crop=frame.querySelector(".storage-card-crop");
+      crop.style.left=Math.min(0,Math.max(width-fullWidth,width/2-fullWidth*Number(frame.dataset.cropX)))+"px";
+      crop.style.top=Math.min(0,Math.max(height-fullHeight,height/2-fullHeight*Number(frame.dataset.cropY)))+"px";
+    });
+  });
+  $$(".storage-card-photo").forEach(frame=>observer.observe(frame));
+}
+function visibleSceneTrigger(sceneKey){
+  return $$('#storageScene [data-scene]').find(b=>b.dataset.scene===sceneKey&&b.getClientRects().length);
+}
 async function openScene(sceneKey){
   const def=sceneDefs[sceneKey];
   if(!def||currentSceneKey)return;
   const transitionVersion=++sceneTransitionVersion;
   shelfScrollTop=window.scrollY;
   currentSceneKey=sceneKey;
-  $$(".hotspot").forEach(b=>b.classList.toggle("active",b.dataset.scene===sceneKey));
+  $$('#storageScene [data-scene]').forEach(b=>b.classList.toggle("active",b.dataset.scene===sceneKey));
   const shelf=$("#storageScene"),spread=$("#unpackScene");
-  const origin=$$('[data-scene]').find(b=>b.dataset.scene===sceneKey);
+  const origin=visibleSceneTrigger(sceneKey);
   const shelfRect=shelf.getBoundingClientRect(),originRect=origin?.getBoundingClientRect();
   const render=renderScene();
   await sceneAssetsReady;
@@ -326,10 +343,10 @@ function closeScene(restoreFocus=true){
   ++sceneTransitionVersion;++sceneRenderVersion;
   currentSceneKey=null;
   $("#unpackScene").hidden=true;$("#storageScene").hidden=false;
-  $$(".hotspot").forEach(b=>b.classList.remove("active"));
+  $$('#storageScene [data-scene]').forEach(b=>b.classList.remove("active"));
   if(restoreFocus&&previous){
     window.scrollTo({top:shelfScrollTop,behavior:"instant"});
-    $$('[data-scene]').find(b=>b.dataset.scene===previous)?.focus({preventScroll:true});
+    visibleSceneTrigger(previous)?.focus({preventScroll:true});
     if(sceneMotion())$("#storageScene").animate([{opacity:0,transform:"scale(1.025)"},{opacity:1,transform:"scale(1)"}],{duration:320,easing:"ease-out"});
   }
 }

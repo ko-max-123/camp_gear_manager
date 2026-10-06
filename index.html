@@ -70,7 +70,10 @@
           </div>
 
           <div class="storage-visual">
-            <img src="assets/storage_scene.png" alt="木の棚に並んだキャンプ道具。収納エリアを選ぶと道具を広げられます。" width="1586" height="992">
+            <picture>
+              <source media="(max-width: 720px)" srcset="assets/storage-cards.jpg">
+              <img src="assets/storage_scene.png" alt="木の棚に並んだキャンプ道具。収納エリアを選ぶと道具を広げられます。" width="1586" height="992">
+            </picture>
 
             <button class="hotspot hs-backpack" data-scene="backpack">リュック類</button>
             <button class="hotspot hs-cookware" data-scene="cookware">クッカー</button>
@@ -81,6 +84,50 @@
             <button class="hotspot hs-boxes" data-scene="boxes">収納BOX</button>
             <button class="hotspot hs-sleep" data-scene="sleeping">寝具・テント</button>
             <button class="hotspot hs-tableware" data-scene="tableware">食器</button>
+          </div>
+          <div class="mobile-storage">
+            <div class="mobile-storage-heading">
+              <h2>どの収納を広げる？</h2>
+              <p>写真から、いつもの道具へ。</p>
+            </div>
+            <div class="storage-card-grid" aria-label="収納の写真から選ぶ">
+              <button class="storage-card" type="button" data-scene="backpack">
+                <span class="storage-card-photo" data-crop-x=".148" data-crop-y=".333" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">リュック類</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="lantern">
+                <span class="storage-card-photo" data-crop-x=".328" data-crop-y=".302" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">ランタン</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="cookware">
+                <span class="storage-card-photo" data-crop-x=".495" data-crop-y=".328" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">クッカー</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="tools">
+                <span class="storage-card-photo" data-crop-x=".75" data-crop-y=".29" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">工具・ロープ</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="coolers">
+                <span class="storage-card-photo" data-crop-x=".798" data-crop-y=".65" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">クーラー</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="boxes">
+                <span class="storage-card-photo" data-crop-x=".391" data-crop-y=".695" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">収納BOX</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="clothes">
+                <span class="storage-card-photo" data-crop-x=".886" data-crop-y=".333" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">衣類</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="sleeping">
+                <span class="storage-card-photo" data-crop-x=".58" data-crop-y=".68" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">寝具・テント</span><span aria-hidden="true">↗</span></span>
+              </button>
+              <button class="storage-card" type="button" data-scene="tableware">
+                <span class="storage-card-photo" data-crop-x=".40" data-crop-y=".38" aria-hidden="true"><span class="storage-card-crop"></span></span>
+                <span class="storage-card-label"><span class="storage-card-name">食器</span><span aria-hidden="true">↗</span></span>
+              </button>
+            </div>
           </div>
         </section>
         <section id="unpackScene" class="unpack-scene" aria-labelledby="unpackTitle" hidden>
