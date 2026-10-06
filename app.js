@@ -31,7 +31,7 @@ const ownedPeg={
   qty:6,qtyUnit:"本",weight:.012,status:"check",default:false,
   storage:"",purchased:"",
   url:"https://www.amazon.co.jp/dp/B08XLDYZC5",
-  photoSrc:"assets/owned-gear/titanmania-v-pegs.jpg",
+  photoSrc:"assets/owned-gear/titanmania-v-pegs-cutout.webp",photoCutout:true,
   note:"添付写真をもとに試し登録。穴ありのV字型・オレンジ色のロープ付き。\n商品仕様はTITAN MANIA公式の16cmタイプを参照：チタン製、約15×160mm、1本約12g、6本セット・収納袋付き。Amazonページとの照合は未確認。\n所持本数は写真の6本で仮登録。購入日・保管場所・現在の状態は未確認。",
   updated:Date.now()
 };
@@ -81,16 +81,34 @@ let sceneRenderVersion=0,sceneTransitionVersion=0;
 let shelfScrollTop=0;
 let activeView="home",editorOrigin=null,editorHasBack=false,editorVersion=0,photoRequest=0;
 let editorPhoto=null,editorLoading=false,photoBusy=false,savingGear=false;
+let tempPhotoCutout=false,editorCareSteps=new Set();
 let detailOrigin=null,detailHasBack=false,detailGearId=null,detailVersion=0;
 const scenePhotos=new Map();
+const photoRenderVersions=new WeakMap();
+const careSteps=[
+  {id:"clean",label:"清掃",hint:"汚れを落とす",description:"道具に合う方法で、土や汚れを落とす。",path:'M5 7 9 4l10 6-4 3L5 7Zm0 0-2 10 10 4 2-8M8 11l-2 7M12 13l-2 7'},
+  {id:"dry",label:"乾燥",hint:"水分を残さない",description:"水分や湿り気が残っていないか確かめる。",path:'M3 8h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h6a3 3 0 1 1-3 3'},
+  {id:"inspect",label:"点検",hint:"破損や不足を確認",description:"曲がり・割れ・緩み、本数や付属品を確かめる。",path:'M15 3a5 5 0 0 0-6 6L3 15l6 6 6-6a5 5 0 0 0 6-6l-4 4-6-6 4-4Z'},
+  {id:"store",label:"収納",hint:"いつもの場所へ",description:"付属品をまとめて、保管場所に戻す。",path:'M3 7h18v14H3V7Zm-1-4h20v4H2V3Zm7 8h6'}
+];
+const careIcon=step=>`<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="${step.path}" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const completedCareSteps=g=>careSteps.filter(step=>g.care?.steps?.includes(step.id)).length;
+const careDate=value=>{const date=new Date(value);return value&&!Number.isNaN(date.getTime())?date.toLocaleDateString("ja-JP"):"";};
 const sceneMotion=()=>!window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const sceneAssetsReady=Promise.all(["assets/unpack-ground.png","assets/unpack-gear-atlas.png"].map(src=>new Promise(resolve=>{
-  const img=new Image();img.onload=img.onerror=resolve;img.src=src;
-})));
+let sceneAssetsReady;
+function loadSceneAssets(){
+  return sceneAssetsReady??=Promise.all(["assets/unpack-ground.webp","assets/unpack-gear-atlas.webp"].map(src=>new Promise(resolve=>{
+    const img=new Image();img.onload=img.onerror=resolve;img.src=src;
+  })));
+}
 
 const save=()=>localStorage.setItem(KEY,JSON.stringify(state));
 function importOwnedPeg(){
   try{
+    const existing=state.gear.find(g=>g.id===ownedPeg.id);
+    if(existing?.photoSrc==="assets/owned-gear/titanmania-v-pegs.jpg"){
+      existing.photoSrc=ownedPeg.photoSrc;existing.photoCutout=true;save();
+    }
     if(localStorage.getItem(OWNED_PEG_IMPORT_KEY)==="1")return;
     if(!state.gear.some(g=>g.id===ownedPeg.id))state.gear.unshift(clone(ownedPeg));
     save();localStorage.setItem(OWNED_PEG_IMPORT_KEY,"1");
@@ -126,9 +144,11 @@ async function compressImage(file){
     const img=new Image();
     await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=url;});
     const max=1280; let w=img.naturalWidth,h=img.naturalHeight; const scale=Math.min(1,max/Math.max(w,h)); w=Math.round(w*scale); h=Math.round(h*scale);
-    const c=document.createElement("canvas"); c.width=w; c.height=h; const ctx=c.getContext("2d",{alpha:false}); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
-    let data=c.toDataURL("image/webp",.74); if(!data.startsWith("data:image/webp")) data=c.toDataURL("image/jpeg",.76);
-    return {data,width:w,height:h,size:Math.round(data.length*.75)};
+    const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d");ctx.drawImage(img,0,0,w,h);
+    const pixels=ctx.getImageData(0,0,w,h).data;let hasAlpha=false;
+    for(let i=3;i<pixels.length;i+=4){if(pixels[i]<250){hasAlpha=true;break;}}
+    let data=c.toDataURL("image/webp",.8);if(!data.startsWith("data:image/webp"))data=c.toDataURL(hasAlpha?"image/png":"image/jpeg",.8);
+    return {data,width:w,height:h,size:Math.round(data.length*.75),hasAlpha};
   }finally{URL.revokeObjectURL(url)}
 }
 async function init(){
@@ -139,10 +159,9 @@ async function init(){
   bind();
   observeStorageCards();
   const route=readRoute();
-  if(route.view==="maintenance")openGearEditor(route.id,{fromHistory:true,returnInfo:history.state?.returnInfo});
-  else if(route.view==="detail")openGearDetails(route.id,{fromHistory:true,returnInfo:history.state?.returnInfo,hasBack:history.state?.hasBack});
-  else switchView(route.view);
-  await renderAll();
+  if(route.view==="maintenance")await openGearEditor(route.id,{fromHistory:true,returnInfo:history.state?.returnInfo});
+  else if(route.view==="detail")await openGearDetails(route.id,{fromHistory:true,returnInfo:history.state?.returnInfo,hasBack:history.state?.hasBack});
+  else await switchView(route.view);
 }
 function bind(){
   $$(".nav").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
@@ -185,17 +204,25 @@ function bind(){
     }
     const edit=e.target.closest("[data-gear-edit]");
     if(edit)openGearEditor(edit.dataset.gearEdit);
+    const start=e.target.closest("[data-care-start]");
+    if(start&&detailGearId)openGearEditor(detailGearId,{careStep:start.dataset.careStart});
   });
   $("#detailBackBtn").onclick=leaveDetails;
   $("#detailMaintenanceBtn").onclick=()=>openGearEditor(detailGearId);
   $("#detailPackBtn").onclick=()=>{if(detailGearId)toggleTrip(detailGearId);};
   $("#gearForm").onsubmit=e=>{e.preventDefault();saveGearFromForm();};
+  $("#maintenanceTasks").onclick=e=>{
+    const button=e.target.closest("[data-care-step]");if(!button||savingGear)return;
+    const step=button.dataset.careStep;
+    if(editorCareSteps.has(step))editorCareSteps.delete(step);else editorCareSteps.add(step);
+    renderMaintenanceTasks();
+  };
   $("#maintenanceBackBtn").onclick=$("#cancelGearBtn").onclick=leaveMaintenance;
   $("#deleteGearBtn").onclick=deleteCurrentGear;
   $("#choosePhotoBtn").onclick=()=>$("#gearPhoto").click();
   $("#gearPhoto").onchange=onPhotoSelected;
   $("#removePhotoBtn").onclick=()=>{
-    ++photoRequest;photoBusy=false;tempPhoto=null;tempPhotoRemoved=true;$("#gearPhoto").value="";
+    ++photoRequest;photoBusy=false;tempPhoto=null;tempPhotoCutout=false;tempPhotoRemoved=true;$("#gearPhoto").value="";
     renderPhotoPreview(null);updateEditorBusy();$("#photoInfo").textContent="記録すると写真を削除します";
   };
   $$('[name="gearStatus"]').forEach(input=>input.onchange=updateMaintenanceMeta);
@@ -214,10 +241,6 @@ function bind(){
       restoreViewContext({...origin,...e.state,view:route.view});
     }
   });
-  $("#exportBtn").onclick=exportJson;
-  $("#importBtn").onclick=()=>$("#importInput").click();
-  $("#importInput").onchange=importJson;
-  $("#resetBtn").onclick=()=>{if(confirm("現在のデータを消してサンプルに戻しますか？")){state=clone(sample);save();if(activeView==="maintenance"||activeView==="detail")switchView("inventory");renderAll();toast("サンプルに戻しました");}};
   $$(".drop-zone").forEach(zone=>{
     zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag-over");});
     zone.addEventListener("dragleave",()=>zone.classList.remove("drag-over"));
@@ -257,16 +280,18 @@ function activateView(name){
     if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
   });
   $("#toolsMenu").open=false;
+  if(["home","inventory","loadout","care"].includes(name))return renderAll();
 }
 function discardEditor(){
   ++editorVersion;++photoRequest;editorOrigin=null;editorHasBack=false;
-  editorPhoto=null;editorLoading=false;photoBusy=false;savingGear=false;tempPhoto=null;tempPhotoRemoved=false;
+  editorPhoto=null;editorLoading=false;photoBusy=false;savingGear=false;tempPhoto=null;tempPhotoRemoved=false;tempPhotoCutout=false;editorCareSteps=new Set();
 }
 function discardDetail(){++detailVersion;detailGearId=null;detailOrigin=null;detailHasBack=false;}
 function switchView(name){
-  discardEditor();discardDetail();closeScene(false);activateView(name);
+  discardEditor();discardDetail();closeScene(false);const rendering=activateView(name);
   history.replaceState({view:name},"",`#${name}`);
   window.scrollTo({top:0,behavior:"smooth"});
+  return rendering;
 }
 function restoreViewContext(origin={}){
   if(origin.view==="detail"){
@@ -304,11 +329,11 @@ function syncTrip(){
 async function renderAll(){
   state.trip.selected=state.trip.selected.filter(id=>state.gear.some(g=>g.id===id));
   syncTrip();
-  if(activeView==="detail")await renderGearDetails();
-  await renderHome();
-  await renderInventory();
-  await renderLoadout();
-  renderCare();
+  if(activeView==="home")await renderHome();
+  else if(activeView==="inventory")await renderInventory();
+  else if(activeView==="loadout")await renderLoadout();
+  else if(activeView==="care")await renderCare();
+  else if(activeView==="detail")await renderGearDetails();
 }
 async function renderHome(){
   $$('#storageScene [data-scene]').forEach(b=>{
@@ -346,7 +371,7 @@ async function openScene(sceneKey){
   const origin=visibleSceneTrigger(sceneKey);
   const shelfRect=shelf.getBoundingClientRect(),originRect=origin?.getBoundingClientRect();
   const render=renderScene();
-  await sceneAssetsReady;
+  await loadSceneAssets();
   if(transitionVersion!==sceneTransitionVersion)return;
   if(sceneMotion()&&!shelf.hidden){
     const transformOrigin=originRect?`${originRect.left-shelfRect.left+originRect.width/2}px ${originRect.top-shelfRect.top+originRect.height/2}px`:"center";
@@ -402,8 +427,8 @@ async function renderScene(){
     const art=grid.querySelector(`[data-gear-detail="${CSS.escape(item.id)}"] .spread-art`);
     if(art){
       if(photo){
-        art.className="spread-art personal-photo";art.style.cssText="";
-        const img=document.createElement("img");img.src=photo;img.alt="";art.replaceChildren(img);
+        art.className="spread-art personal-photo"+(item.photoCutout?" photo-cutout":"");art.style.cssText="";
+        const img=document.createElement("img");img.decoding="async";img.src=photo;img.alt="";art.replaceChildren(img);
       }else{
         const sprite=sceneSprite(item);
         art.className="spread-art gear-sprite";art.replaceChildren();
@@ -421,8 +446,8 @@ function sceneSprite(item){
 }
 function sceneItemHtml(item,index){
   const chosen=state.trip.selected.includes(item.id);
-  const sprite=sceneSprite(item),photo=scenePhotos.get(item.id),tilt=[-5,4,-2,6,-4,3][index%6];
-  const art=photo?`<span class="spread-art personal-photo"><img src="${esc(photo)}" alt=""></span>`:`<span class="spread-art gear-sprite" style="background-position:${sprite%4*100/3}% ${Math.floor(sprite/4)*100/3}%" aria-hidden="true"></span>`;
+  const sprite=sceneSprite(item),photo=scenePhotos.get(item.id)||item.photoSrc,tilt=[-5,4,-2,6,-4,3][index%6];
+  const art=photo?`<span class="spread-art personal-photo${item.photoCutout?" photo-cutout":""}"><img src="${esc(photo)}" alt="" decoding="async"></span>`:`<span class="spread-art gear-sprite" style="background-position:${sprite%4*100/3}% ${Math.floor(sprite/4)*100/3}%" aria-hidden="true"></span>`;
   return `<article class="spread-item ${chosen?"is-packed":""}" style="--gear-tilt:${tilt}deg">
     <a class="spread-pick" href="#gear/${encodeURIComponent(item.id)}" data-gear-detail="${esc(item.id)}" aria-label="${esc(item.name)}の詳細">
       <span class="spread-object">${art}<span class="packed-stamp" aria-hidden="true">✓ PACKED</span></span>
@@ -456,23 +481,29 @@ async function renderInventory(){
 }
 async function renderGearCards(root,list){
   root.innerHTML=list.map((g,index)=>gearCardHtml(g,index)).join("");
-  for(const g of list){
-    const img=await photoGet(g.id);
-    const wrap=root.querySelector(`[data-id="${CSS.escape(g.id)}"] .gear-photo`);
-    if(img&&wrap){
-      const art=wrap.querySelector(".inventory-art");
-      art.className="inventory-art inventory-personal-photo";art.style.cssText="";
-      art.innerHTML=`<img src="${esc(img)}" alt="${esc(g.name)}の写真">`;
-    }
-  }
+  await hydrateGearPhotos(root,list);
+}
+function gearArtHtml(g,className){
+  const photo=scenePhotos.get(g.id)||g.photoSrc,sprite=sceneSprite(g);
+  return `<span class="${className} gear-object ${photo?"object-photo"+(g.photoCutout?" photo-cutout":""):"gear-sprite"}" data-gear-art="${esc(g.id)}" ${photo?"":`style="background-position:${sprite%4*100/3}% ${Math.floor(sprite/4)*100/3}%"`} aria-hidden="true">${photo?`<img src="${esc(photo)}" alt="" loading="lazy" decoding="async" draggable="false">`:""}</span>`;
+}
+async function hydrateGearPhotos(root,list){
+  const version=(photoRenderVersions.get(root)||0)+1;photoRenderVersions.set(root,version);
+  await Promise.all(list.map(async g=>{
+    const photo=await photoGet(g.id);if(photoRenderVersions.get(root)!==version)return;
+    if(photo)scenePhotos.set(g.id,photo);else scenePhotos.delete(g.id);
+    const art=root.querySelector(`[data-gear-art="${CSS.escape(g.id)}"]`);if(!art||!photo)return;
+    art.classList.remove("gear-sprite");art.classList.add("object-photo");art.classList.toggle("photo-cutout",!!g.photoCutout);art.style.backgroundPosition="";
+    const img=new Image();img.loading="lazy";img.decoding="async";img.src=photo;img.alt="";img.draggable=false;art.replaceChildren(img);
+  }));
 }
 function gearCardHtml(g,index){
-  const sprite=sceneSprite(g),tilt=[-4,3,-2,4,-3,2][index%6],tagTilt=[-.7,.6,-.4,.8,-.6,.4][index%6];
+  const tilt=[-4,3,-2,4,-3,2][index%6],tagTilt=[-.7,.6,-.4,.8,-.6,.4][index%6];
   const chosen=state.trip.selected.includes(g.id);
   const url=g.url?`<a class="buy-link" href="${esc(g.url)}" target="_blank" rel="noopener">購入サイト ↗</a>`:"";
   return `<article class="gear-card" data-id="${esc(g.id)}" style="--gear-tilt:${tilt}deg;--tag-tilt:${tagTilt}deg">
     <div class="gear-photo">
-      <span class="inventory-art gear-sprite" style="background-position:${sprite%4*100/3}% ${Math.floor(sprite/4)*100/3}%" aria-hidden="true"></span>
+      ${gearArtHtml(g,"inventory-art")}
       ${chosen?'<span class="inventory-packed">✓ 今回の荷物</span>':""}
     </div>
     <div class="gear-body">
@@ -497,39 +528,46 @@ async function renderLoadout(){
     stat("持っていく",selected.length,"点")+
     stat("総重量",weight(selected).toFixed(1),"kg")+
     stat("カテゴリ",new Set(selected.map(g=>g.category)).size,"種");
-  await renderMoveCards($("#storageGearList"),storage,false);
-  await renderMoveCards($("#campGearList"),selected,true);
+  await Promise.all([
+    renderMoveCards($("#storageGearList"),storage,false),
+    renderMoveCards($("#campGearList"),selected,true)
+  ]);
 }
 async function renderMoveCards(root,list,inCamp){
   if(!list.length){
-    root.innerHTML=`<div class="empty-zone"><span>${inCamp?"🏕️":"🧰"}</span><b>${inCamp?"まだ選んでいません":"こちらにはありません"}</b><small>${inCamp?"トップページか左側から道具を追加してください":"右側へ移動できます"}</small></div>`;
+    photoRenderVersions.set(root,(photoRenderVersions.get(root)||0)+1);
+    root.innerHTML=`<div class="empty-zone"><small>${inCamp?"READY TO PACK":"ON THE SHELF"}</small><b>${inCamp?"荷物をここに整える":"道具はすべて荷物の中です"}</b><p>${inCamp?"棚から、今回使う道具を選んで入れる。":"使わない道具は、棚へ戻しておけます。"}</p></div>`;
     return;
   }
-  root.innerHTML=list.map(g=>`<article class="move-card" draggable="true" data-move-id="${esc(g.id)}">
-    <div class="move-photo" data-photo-for="${esc(g.id)}"><span>${emoji[g.category]||"🎒"}</span></div>
-    <div class="move-body"><strong><a class="gear-detail-link" href="#gear/${encodeURIComponent(g.id)}" data-gear-detail="${esc(g.id)}" draggable="false" aria-label="${esc(g.name)}の詳細">${esc(g.name)}</a></strong><small>${esc(g.category)} / ${fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))}</small>
-      <div class="move-actions"><button class="main-move">${inCamp?"戻す":"持っていく"}</button><button class="move-edit" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れ">手入れ</button></div>
+  root.innerHTML=list.map((g,index)=>`<article class="move-card" draggable="true" data-move-id="${esc(g.id)}" style="--gear-tilt:${index%2?3:-3}deg">
+    <div class="move-photo">${gearArtHtml(g,"move-art")}</div>
+    <div class="move-body"><small>${esc(g.category)}</small><strong><a class="gear-detail-link" href="#gear/${encodeURIComponent(g.id)}" data-gear-detail="${esc(g.id)}" draggable="false" aria-label="${esc(g.name)}の詳細">${esc(g.name)}</a></strong><small>${esc(g.qty||1)}${esc(g.qtyUnit||"個")} · ${fmtWeight((Number(g.weight)||0)*(Number(g.qty)||1))}</small>
+      <div class="move-actions"><button class="main-move" type="button">${inCamp?"← 棚へ戻す":"荷物に入れる →"}</button><button class="move-edit" type="button" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れ">手入れ ↗</button></div>
     </div>
   </article>`).join("");
-  for(const g of list){
-    const img=await photoGet(g.id);
-    const wrap=root.querySelector(`[data-photo-for="${CSS.escape(g.id)}"]`);
-    if(img&&wrap)wrap.innerHTML=`<img src="${img}" alt="${esc(g.name)}">`;
-  }
   root.querySelectorAll(".move-card").forEach(card=>{
     card.addEventListener("dragstart",e=>{draggedId=card.dataset.moveId;card.classList.add("dragging");e.dataTransfer.setData("text/plain",draggedId);});
     card.addEventListener("dragend",()=>{card.classList.remove("dragging");$$(".drop-zone").forEach(z=>z.classList.remove("drag-over"));draggedId=null;});
     card.querySelector(".main-move").onclick=()=>inCamp?moveToStorage(card.dataset.moveId):moveToCamp(card.dataset.moveId);
   });
+  await hydrateGearPhotos(root,list);
 }
 function moveToCamp(id){if(!state.trip.selected.includes(id))state.trip.selected.push(id);save();renderAll();toast("今回持っていくに追加しました");}
 function moveToStorage(id){state.trip.selected=state.trip.selected.filter(x=>x!==id);save();renderAll();toast("収納側に戻しました");}
 
-function renderCare(){
+async function renderCare(){
   const good=state.gear.filter(g=>g.status==="good"),check=state.gear.filter(g=>g.status==="check"),repair=state.gear.filter(g=>g.status==="repair");
   $("#careStats").innerHTML=stat("使用OK",good.length,"点")+stat("要確認",check.length,"点")+stat("修理・交換",repair.length,"点")+stat("合計",state.gear.length,"点");
   const list=[...repair,...check];
-  $("#careList").innerHTML=list.length?list.map(g=>`<div class="care-row"><span>${g.status==="repair"?"🛠️":"👀"}</span><div><h3><a class="gear-detail-link" href="#gear/${encodeURIComponent(g.id)}" data-gear-detail="${esc(g.id)}" aria-label="${esc(g.name)}の詳細">${esc(g.name)}</a></h3><p>${esc(g.note||g.storage||"メモなし")}</p></div><button class="small-btn care-edit" data-id="${esc(g.id)}" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れ">手入れ</button></div>`).join(""):`<div class="empty"><span>🌿</span><b>状態確認が必要な道具はありません</b></div>`;
+  const root=$("#careList");
+  root.innerHTML=list.length?list.map((g,index)=>`<article class="care-object" style="--gear-tilt:${index%2?3:-4}deg">
+    <div class="care-object-photo">${gearArtHtml(g,"care-art")}</div>
+    <div class="care-tag"><span class="inventory-condition ${esc(g.status)}">${esc(statusText[g.status])}</span><h3><a class="gear-detail-link" href="#gear/${encodeURIComponent(g.id)}" data-gear-detail="${esc(g.id)}" aria-label="${esc(g.name)}の詳細">${esc(g.name)}</a></h3>
+      <p>${esc(g.note?.split("\n")[0]||g.storage||"次のキャンプの前に、状態を確かめる。")}</p>
+      <small>${g.care?.lastCompleted?"前回のお手入れ "+careDate(g.care.lastCompleted):"お手入れの工程をまだ記録していません"}</small>
+      <button class="care-edit" type="button" data-gear-edit="${esc(g.id)}" aria-label="${esc(g.name)}の手入れを始める">作業台で手入れする ↗</button>
+    </div></article>`).join(""):`<div class="care-ready"><span>READY</span><h2>道具は、次のキャンプへ。</h2><p>点検・修理待ちの道具はありません。</p></div>`;
+  await hydrateGearPhotos(root,list);
 }
 
 async function openGearDetails(id,options={}){
@@ -569,7 +607,10 @@ async function renderGearDetails(){
   $("#detailStatus").className="maintenance-stamp "+g.status;
   $("#detailStatus").textContent=statusText[g.status]||"状態未設定";
   $("#detailPacked").textContent=chosen?"✓ 今回の荷物に入っています":"収納棚で待機中";
-  $("#detailNote").textContent=g.note||"まだ手入れのメモはありません。";
+  $("#detailNote").textContent=g.note||"まだ道具の記録はありません。";
+  $("#detailCareTools").innerHTML=careSteps.map(step=>`<button class="service-tool" type="button" data-care-start="${step.id}" aria-label="${esc(g.name)}の${step.label}を始める">${careIcon(step)}<b>${step.label}</b><small>${step.hint}</small></button>`).join("");
+  const completed=completedCareSteps(g),last=careDate(g.care?.lastCompleted);
+  $("#detailCareSummary").innerHTML=`<small>お手入れの進み具合</small><strong>${completed} <span>/ ${careSteps.length} 工程</span></strong><div class="service-progress" aria-label="${completed}工程完了"><span style="width:${completed/careSteps.length*100}%"></span></div><p>${last?"前回の完了 "+last:"まだ完了した手入れの記録はありません"}</p>`;
   $("#detailStorage").textContent=g.storage||"保管場所はまだ決まっていません";
   $("#detailPackBtn").textContent=chosen?"今回の荷物から戻す":"今回持っていく";
   $("#detailPackBtn").setAttribute("aria-pressed",String(chosen));
@@ -582,13 +623,13 @@ async function renderGearDetails(){
   $("#detailSpecs").innerHTML=specs.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join("");
   const purchase=$("#detailPurchaseLink");purchase.hidden=true;purchase.removeAttribute("href");
   try{const url=new URL(g.url);if(url.protocol==="http:"||url.protocol==="https:"){purchase.href=url.href;purchase.hidden=false;}}catch(e){}
-  renderDetailPhoto(g,scenePhotos.get(g.id));
+  renderDetailPhoto(g,scenePhotos.get(g.id)||g.photoSrc);
   const photo=await photoGet(g.id);
   if(version===detailVersion&&detailGearId===g.id)renderDetailPhoto(g,photo);
 }
 function renderDetailPhoto(g,photo){
   const root=$("#detailPhoto");root.replaceChildren();
-  if(photo){const img=new Image();img.src=photo;img.alt=g.name+"の写真";root.append(img);}
+  if(photo){const img=new Image();img.decoding="async";img.src=photo;img.alt=g.name+"の写真";root.append(img);}
   else{
     const sprite=sceneSprite(g),art=document.createElement("div");art.className="maintenance-sprite gear-sprite";
     art.style.backgroundPosition=`${sprite%4*100/3}% ${Math.floor(sprite/4)*100/3}%`;
@@ -613,11 +654,13 @@ async function openGearEditor(id,options={}){
   }else editorHasBack=!!options.returnInfo;
   const version=++editorVersion;++photoRequest;
   editorLoading=!!g;photoBusy=false;savingGear=false;editorPhoto=null;
-  tempPhoto=null;tempPhotoRemoved=false;
+  tempPhoto=null;tempPhotoRemoved=false;tempPhotoCutout=false;
+  editorCareSteps=new Set(completedCareSteps(g||{})===careSteps.length?[]:(g?.care?.steps||[]).filter(id=>careSteps.some(step=>step.id===id)));
   $("#maintenanceTitle").textContent=g?"道具の手入れ":"道具を迎える";
-  $("#maintenanceDescription").textContent=g?"状態を確かめて、気づいたことを残しておきましょう。":"写真と名前を添えて、いつもの道具に加えましょう。";
+  $("#maintenanceDescription").textContent=g?"清掃・乾燥・点検・収納。済んだ作業を確かめて、道具を整えましょう。":"写真と名前を添えて、いつもの道具に加えましょう。";
   $("#maintenanceBackBtn").textContent="← "+backLabel(returnInfo);
-  $("#saveGearBtn").textContent=g?"記録して戻る":"棚に追加する";
+  $("#saveGearBtn").textContent=g?"手入れを終えて戻る":"棚に追加する";
+  $("#maintenanceTaskPanel").hidden=!g;renderMaintenanceTasks();
   $("#gearId").value=g?.id||"";
   $("#gearName").value=g?.name||"";
   $("#gearCategory").value=g?.category||categories[0];
@@ -630,12 +673,14 @@ async function openGearEditor(id,options={}){
   $("#gearUrl").value=g?.url||"";
   $("#gearDefault").checked=!!g?.default;
   $("#gearNote").value=g?.note||"";
+  $("#maintenanceView .service-records").open=false;
   $("#gearRemoveOptions").hidden=!g;$("#gearRemoveOptions").open=false;
   $("#gearSpecs").open=!g;
   $("#photoInfo").textContent="";
   $("#gearPhoto").value="";
   renderPhotoPreview(null);updateMaintenanceMeta();updateEditorBusy();activateView("maintenance");
   window.scrollTo({top:0,behavior:"instant"});$("#maintenanceTitle").focus({preventScroll:true});
+  if(options.careStep)$(`[data-care-step="${CSS.escape(options.careStep)}"]`)?.focus({preventScroll:true});
   const existing=g?await photoGet(g.id):null;
   if(version!==editorVersion)return;
   editorLoading=false;renderPhotoPreview(existing);updateEditorBusy();
@@ -646,11 +691,22 @@ function updateMaintenanceMeta(){
   $("#maintenanceStamp").textContent={good:"次のキャンプへ",check:"出発前に点検",repair:"手入れ中"}[status];
   $("#maintenanceGearMeta").textContent=[$("#gearBrand").value.trim(),$("#gearCategory").value].filter(Boolean).join(" / ");
 }
+function renderMaintenanceTasks(){
+  const focused=document.activeElement?.dataset.careStep;
+  $("#maintenanceProgress").textContent=`${editorCareSteps.size} / ${careSteps.length} 工程完了`;
+  if($("#maintenanceTaskPanel").hidden===false)$("#saveGearBtn").textContent=editorCareSteps.size===careSteps.length?"手入れを終えて戻る":"途中まで記録して戻る";
+  $("#maintenanceTasks").innerHTML=careSteps.map(step=>{
+    const done=editorCareSteps.has(step.id);
+    return `<button class="service-tool ${done?"is-complete":""}" type="button" data-care-step="${step.id}" aria-pressed="${done}">${careIcon(step)}<b>${step.label}</b><small>${step.description}</small><span class="service-step-state">${done?"✓ 完了":"済んだら完了にする"}</span></button>`;
+  }).join("");
+  if(focused)$(`[data-care-step="${CSS.escape(focused)}"]`)?.focus({preventScroll:true});
+}
 function updateEditorBusy(){
   $("#saveGearBtn").disabled=editorLoading||photoBusy||savingGear;
   $("#choosePhotoBtn").disabled=editorLoading||savingGear;
   $("#removePhotoBtn").disabled=editorLoading||savingGear||(!editorPhoto&&!photoBusy);
   ["maintenanceBackBtn","cancelGearBtn","deleteGearBtn"].forEach(id=>$("#"+id).disabled=savingGear);
+  $$("#maintenanceTasks button").forEach(button=>button.disabled=savingGear);
 }
 function renderPhotoPreview(dataUrl){
   editorPhoto=dataUrl;
@@ -671,7 +727,7 @@ async function onPhotoSelected(e){
     $("#photoInfo").textContent="写真を読み込んでいます…";
     const result=await compressImage(file);
     if(version!==editorVersion||request!==photoRequest)return;
-    tempPhoto=result.data;tempPhotoRemoved=false;
+    tempPhoto=result.data;tempPhotoCutout=result.hasAlpha;tempPhotoRemoved=false;
     renderPhotoPreview(result.data);
     $("#photoInfo").textContent="記録すると写真を更新します";
   }catch(err){if(version===editorVersion&&request===photoRequest){$("#photoInfo").textContent="写真を読み込めませんでした。別の写真を選んでください。";}}
@@ -697,12 +753,14 @@ async function saveGearFromForm(){
     updated:Date.now()
   };
   if(!item.name)return toast("道具名を入力してください");
+  if($("#gearId").value)item.care={...item.care,steps:[...editorCareSteps],updated:Date.now(),lastCompleted:editorCareSteps.size===careSteps.length?new Date().toISOString():item.care?.lastCompleted||null};
   savingGear=true;updateEditorBusy();
   const version=editorVersion,previous=clone(state);
   const idx=state.gear.findIndex(g=>g.id===id);
   try{
     if(tempPhoto)await photoPut(id,tempPhoto);else if(tempPhotoRemoved)await photoDelete(id);
-    if(tempPhoto||tempPhotoRemoved)delete item.photoSrc;
+    if(tempPhoto||tempPhotoRemoved){delete item.photoSrc;item.photoCutout=!!tempPhoto&&tempPhotoCutout;}
+    if(tempPhoto)scenePhotos.set(id,tempPhoto);else if(tempPhotoRemoved)scenePhotos.delete(id);
     if(idx>=0)state.gear[idx]=item;else state.gear.unshift(item);
     save();await renderAll();
     if(version===editorVersion){savingGear=false;leaveMaintenance();}
@@ -724,20 +782,6 @@ async function deleteCurrentGear(){
     if(version===editorVersion){savingGear=false;leaveMaintenance();}
     toast("道具を棚から外しました");
   }catch(err){state=previous;if(version===editorVersion){savingGear=false;updateEditorBusy();toast("削除できませんでした。もう一度お試しください");}}
-}
-
-function exportJson(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`camp-gear-${new Date().toISOString().slice(0,10)}.json`;a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("JSONを書き出しました");
-}
-async function importJson(e){
-  const f=e.target.files?.[0];e.target.value="";if(!f)return;
-  try{
-    const parsed=JSON.parse(await f.text());if(!Array.isArray(parsed.gear))throw new Error();
-    if(!confirm("現在の道具データを、読み込んだJSONで置き換えますか？"))return;
-    state=normalize(parsed);save();if(activeView==="maintenance"||activeView==="detail")switchView("inventory");renderAll();toast("JSONを読み込みました");
-  }catch(err){alert("JSONを読み込めませんでした。");}
 }
 
 init();
